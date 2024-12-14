@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -13,13 +15,16 @@ import androidx.core.view.WindowInsetsCompat
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.webchat.ui.login.LoginResult
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.database.tubesock.WebSocket
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,46 +38,29 @@ import java.net.URL
 import java.net.URLEncoder
 
 
+data class Chat(
+    val id: String,
+    val name: String,
+)
 
-import okhttp3.OkHttpClient
-import okhttp3.Request
-//import okhttp3.WebSocket
-import okhttp3.WebSocketListener
-//import okhttp.Response
+class ChatAdapter(context: Context, private val people: List<Chat>) : ArrayAdapter<Chat>(context, 0, people) {
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+        val chat = getItem(position)
 
 
-class MessagesAdapter(private val messages: List<String>) : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>() {
-    class MessageViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
-        val textView = LayoutInflater.from(parent.context)
-            .inflate(android.R.layout.simple_list_item_1, parent, false) as TextView
-        return MessageViewHolder(textView)
+        val listItem = convertView ?: LayoutInflater.from(context).inflate(R.layout.list_item, parent, false)
+
+
+        val personNameTextView = listItem.findViewById<TextView>(R.id.chat_name)
+        personNameTextView.text = chat?.name
+
+        return listItem
     }
-    override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        holder.textView.text = messages[position]
-    }
-
-    override fun getItemCount() = messages.size
 }
 
+class MainActivity : AppCompatActivity() {
 
-
-class MainActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocketCallback {
-    fun PrintToMainView(Data:String)
-    {
-
-        CoroutineScope(Dispatchers.Main).launch {
-            findViewById<TextView>(R.id.ChatView).setText(findViewById<TextView>(R.id.ChatView).text.toString() + "\n\r" + Data);
-        }
-    }
-    fun ClearMainView()
-    {
-        CoroutineScope(Dispatchers.Main).launch {
-            findViewById<TextView>(R.id.ChatView).setText("");
-        }
-    }
-    var IsRoomSeteltion = false
-    var Rooms = mutableMapOf("0" to "0")
     fun GenerateRequest(RequestUrl: String, Type:String) : HttpURLConnection
     {
         val urlConnection = URL(RequestUrl).openConnection() as HttpURLConnection
@@ -83,51 +71,10 @@ class MainActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocke
         return  urlConnection
     }
 
-    fun GetRooms()
-    {
-
-        val urlConnection = GenerateRequest("http://147.45.155.203:3000/chatroom/get","GET")
-        var response = ""
-
-        val scope = CoroutineScope(Dispatchers.Default)
-        scope.launch {
-            try {
-                val responseCode = urlConnection.responseCode
-                response = BufferedReader(InputStreamReader(urlConnection.inputStream)).use { reader ->
-                    reader.lineSequence().joinToString("\n")
-                }
-
-                if(responseCode == 200)
-                {
-
-
-                    val jsonArray = JSONArray(JSONObject(response).getString("content"))
-                    PrintToMainView("Выберите комнату для подключения:")
-                    for (i in 0 until jsonArray.length()) {
-                        PrintToMainView(jsonArray.getJSONObject(i).getString("Name"))
-                        Rooms[jsonArray.getJSONObject(i).getString("Name")] = jsonArray.getJSONObject(i).getString("ChatroomId")
-                    }
-                    IsRoomSeteltion = true
-                }
-                else{
-                    CoroutineScope(Dispatchers.Main).launch {
-                        Toast.makeText(
-                            applicationContext,
-                            "Ошибка получения списка комнат",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            } catch (ex: Exception) {
-                println(ex.message)
-            }
-        }
-    }
-
 
     fun EnterRoom(RoomUID:String)
     {
-        val urlConnection = GenerateRequest("http://147.45.155.203:3000/user/enterChatroom/$RoomUID/$UserUID","GET")
+        val urlConnection = GenerateRequest("http://${getString(R.string.host)}:3000/user/enterChatroom/$RoomUID/$UserUID","GET")
         var response = ""
 
         val scope = CoroutineScope(Dispatchers.Default)
@@ -140,9 +87,6 @@ class MainActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocke
 
                 if(responseCode == 200)
                 {
-                    ClearMainView()
-                    PrintToMainView("Вы успешно вошли в комнату")
-
                 }
                 else{
                     CoroutineScope(Dispatchers.Main).launch {
@@ -158,73 +102,112 @@ class MainActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocke
             }
         }
     }
-    fun WriteToRoom(message: String)
-    {
-        com.example.webchat.WebSocket.sendMessage(message)
-    }
+
 
     var UserTokenttoken = ""
     var UserUID = ""
+
+//    private lateinit var chatList: RecyclerView
+//    private lateinit var createChatButton: Button
+    private val chats = mutableListOf<Chat>()
+
+    private lateinit var chatListView: ListView
+    private lateinit var btnNewChat: Button
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+
         val sharedPrf = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
         UserTokenttoken = sharedPrf.getString("user_token", null)?:"NULL"
         UserUID = sharedPrf.getString("user_uuid", null)?:"NULL"
 
-        GetRooms()
-        var MyButton = findViewById<Button>(R.id.SendMessage);
-        MyButton?.setOnClickListener()
-        {
-            AnalyzeInput()
-            //val CurrentMessages = R.id.ChatView.get
-            var Data =  findViewById<TextView>(R.id.ChatView).text.toString() + "\n" + findViewById<TextInputEditText>(R.id.MessageInput).text.toString();
-            findViewById<TextView>(R.id.ChatView).setText(Data);
-            //findViewById<TextView>(R.id.ChatView).text = Data;
-        }
+        chatListView = findViewById(R.id.chatList)
+        btnNewChat = findViewById(R.id.createChatButton)
 
-    }
+        val adapter = ChatAdapter(this, chats)
+        //val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, chats)
+        chatListView.adapter = adapter
 
-    fun AnalyzeInput()
-    {
-        if(IsRoomSeteltion) {
-
-            val selectedRoom = findViewById<TextInputEditText>(R.id.MessageInput).text.toString()
-
-            if(Rooms.containsKey(selectedRoom))
-            {
-                PrintToMainView("Выбрана текущая комната $selectedRoom")
-                EnterRoom(Rooms[selectedRoom]?:"NULL")
-                com.example.webchat.WebSocket.connectWebSocket(Rooms[selectedRoom]?:"NULL",UserUID,UserTokenttoken,this)
-                IsRoomSeteltion = false
+        chatListView.setOnItemClickListener { _, _, position, _ ->
+            try {
+                EnterRoom(chats[position].id ?: "NULL")
+                val i = Intent(this@MainActivity, ChatActivity::class.java)
+                startActivity(i)
             }
-            else
-                PrintToMainView("Не удалось найти комнаты с таким названием")
+         catch (ex: Exception) {
+            println(ex.message)
         }
-        else{
-            WriteToRoom(findViewById<TextInputEditText>(R.id.MessageInput).text.toString())
+        }
+
+        btnNewChat.setOnClickListener {
+            createNewChat()
+            adapter.notifyDataSetChanged()
+        }
+
+
+
+//        chatList = findViewById(R.id.chatList)
+//        createChatButton = findViewById(R.id.createChatButton)
+//
+//        chatList.layoutManager = LinearLayoutManager(this)
+//        val adapter = ChatAdapter(chats) { chat ->
+//            openChat(chat)
+//        }
+//        chatList.adapter = adapter
+//
+//        createChatButton.setOnClickListener {
+//            createNewChat()
+//        }
+//
+        loadChatData()
+        adapter.notifyDataSetChanged()
+    }
+
+    private fun loadChatData() {
+
+        val urlConnection = GenerateRequest("http://${getString(R.string.host)}:3000/chatroom/get","GET")
+        var response = ""
+
+        val scope = CoroutineScope(Dispatchers.Default)
+        scope.launch {
+            try {
+                val responseCode = urlConnection.responseCode
+                response = BufferedReader(InputStreamReader(urlConnection.inputStream)).use { reader ->
+                    reader.lineSequence().joinToString("\n")
+                }
+
+                if(responseCode == 200)
+                {
+                    val jsonArray = JSONArray(JSONObject(response).getString("content"))
+                    for (i in 0 until jsonArray.length()) {
+                        val jsobj = jsonArray.getJSONObject(i)
+                        chats.add(Chat(jsobj.getString("ChatroomId"),jsobj.getString("Name")))
+                    }
+                }
+                else{
+                    CoroutineScope(Dispatchers.Main).launch {
+                        Toast.makeText(
+                            applicationContext,
+                            "Ошибка получения списка комнат",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (ex: Exception) {
+                println(ex.message)
+            }
         }
     }
 
-    override fun onMessageReceived(message: String) {
-        PrintToMainView(message)
-    }
-
-    override fun onConnectionOpened() {
+    private fun openChat(chat: Chat) {
 
     }
 
-    override fun onConnectionClosed() {
-
+    private fun createNewChat() {
+        val newChat = Chat("1", "Новый чат")
+        chats.add(newChat)
+        Toast.makeText(this, "Создан новый чат: ${newChat.name}", Toast.LENGTH_SHORT).show()
     }
 
-    override fun onConnectionFailure(error: String) {
-
-    }
 }

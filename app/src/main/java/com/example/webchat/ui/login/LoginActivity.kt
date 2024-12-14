@@ -51,7 +51,7 @@ var UserAuthToken = "";
     fun CreateUser(params: Map<String, String>,LogRes:LoginResult)
     {
 
-        val urlConnection = GenerateRequest(params,"http://147.45.155.203:3000/user/create")
+        val urlConnection = GenerateRequest(params,"http://${getString(R.string.host)}:3000/user/create")
         var response = ""
         val postData = "{" + params.map {
             "\"${URLEncoder.encode(it.key, "UTF-8")}\":\"${URLEncoder.encode(it.value, "UTF-8")}\""
@@ -88,7 +88,7 @@ var UserAuthToken = "";
     }
     fun AuthUser(params: Map<String, String>,LogRes:LoginResult) {
 
-        val urlConnection = GenerateRequest(params,"http://147.45.155.203:3000/user/login")
+        val urlConnection = GenerateRequest(params,"http://${getString(R.string.host)}:3000/user/login")
         var response = ""
         val postData = "{" + params.map {
             "\"${URLEncoder.encode(it.key, "UTF-8")}\":\"${URLEncoder.encode(it.value, "UTF-8")}\""

@@ -21,7 +21,7 @@ object WebSocket {
 
     fun connectWebSocket(chatID: String, UserID: String, accessToken: String, callback: WebSocketCallback) {
         val request = Request.Builder()
-            .url("ws://147.45.155.203:3000/ws/$UserID/$chatID")
+            .url("ws://192.168.240.1:3000/ws/$UserID/$chatID")
             .addHeader("Authorization", "Bearer $accessToken")
             .build()
 
