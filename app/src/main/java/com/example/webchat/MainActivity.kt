@@ -87,6 +87,10 @@ class MainActivity : AppCompatActivity() {
 
                 if(responseCode == 200)
                 {
+                    val sharedPreferences = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+                    val editor = sharedPreferences.edit()
+                    editor.putString("chat_id", RoomUID)
+                    editor.apply()
                 }
                 else{
                     CoroutineScope(Dispatchers.Main).launch {
@@ -113,7 +117,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var chatListView: ListView
     private lateinit var btnNewChat: Button
-
+    lateinit var adapter:ChatAdapter
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -125,7 +129,7 @@ class MainActivity : AppCompatActivity() {
         chatListView = findViewById(R.id.chatList)
         btnNewChat = findViewById(R.id.createChatButton)
 
-        val adapter = ChatAdapter(this, chats)
+        adapter = ChatAdapter(this, chats)
         //val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, chats)
         chatListView.adapter = adapter
 
@@ -145,21 +149,6 @@ class MainActivity : AppCompatActivity() {
             adapter.notifyDataSetChanged()
         }
 
-
-
-//        chatList = findViewById(R.id.chatList)
-//        createChatButton = findViewById(R.id.createChatButton)
-//
-//        chatList.layoutManager = LinearLayoutManager(this)
-//        val adapter = ChatAdapter(chats) { chat ->
-//            openChat(chat)
-//        }
-//        chatList.adapter = adapter
-//
-//        createChatButton.setOnClickListener {
-//            createNewChat()
-//        }
-//
         loadChatData()
         adapter.notifyDataSetChanged()
     }
@@ -200,14 +189,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openChat(chat: Chat) {
-
-    }
-
     private fun createNewChat() {
-        val newChat = Chat("1", "Новый чат")
-        chats.add(newChat)
-        Toast.makeText(this, "Создан новый чат: ${newChat.name}", Toast.LENGTH_SHORT).show()
+        val intent = Intent(this, CreateRoomActivity::class.java)
+        startActivity(intent)
+        chats.clear()
+        loadChatData()
+        adapter.notifyDataSetChanged()
     }
 
 }

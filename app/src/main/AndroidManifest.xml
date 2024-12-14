@@ -19,6 +19,9 @@
             android:name=".MainActivity"
             android:exported="false" />
         <activity
+            android:name=".CreateRoomActivity"
+            android:exported="false" />
+        <activity
             android:name=".ChatActivity"
             android:exported="false" />
         <activity

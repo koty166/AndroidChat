@@ -43,117 +43,14 @@ import okhttp3.WebSocketListener
 
 
 class ChatActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocketCallback {
-    fun PrintToMainView(Data:String)
-    {
-
-        CoroutineScope(Dispatchers.Main).launch {
-            findViewById<TextView>(R.id.chat_messages).setText(findViewById<TextView>(R.id.chat_messages).text.toString() + "\n\r" + Data);
-        }
-    }
-    fun ClearMainView()
-    {
-        CoroutineScope(Dispatchers.Main).launch {
-            findViewById<TextView>(R.id.chat_messages).setText("");
-        }
-    }
-    var IsRoomSeteltion = false
-    var Rooms = mutableMapOf("0" to "0")
-    fun GenerateRequest(RequestUrl: String, Type:String) : HttpURLConnection
-    {
-        val urlConnection = URL(RequestUrl).openConnection() as HttpURLConnection
-
-        urlConnection.requestMethod = "GET"
-        urlConnection.setRequestProperty("Content-Type", "application/json")
-        urlConnection.setRequestProperty("Authorization", "Bearer $UserTokenttoken")
-        return  urlConnection
-    }
-
-    fun GetRooms()
-    {
-
-        val urlConnection = GenerateRequest("http://${getString(R.string.host)}:3000/chatroom/get","GET")
-        var response = ""
-
-        val scope = CoroutineScope(Dispatchers.Default)
-        scope.launch {
-            try {
-                val responseCode = urlConnection.responseCode
-                response = BufferedReader(InputStreamReader(urlConnection.inputStream)).use { reader ->
-                    reader.lineSequence().joinToString("\n")
-                }
-
-                if(responseCode == 200)
-                {
-
-
-                    val jsonArray = JSONArray(JSONObject(response).getString("content"))
-                    PrintToMainView("Выберите комнату для подключения:")
-                    for (i in 0 until jsonArray.length()) {
-                        PrintToMainView(jsonArray.getJSONObject(i).getString("Name"))
-                        Rooms[jsonArray.getJSONObject(i).getString("Name")] = jsonArray.getJSONObject(i).getString("ChatroomId")
-                    }
-                    IsRoomSeteltion = true
-                }
-                else{
-                    CoroutineScope(Dispatchers.Main).launch {
-                        Toast.makeText(
-                            applicationContext,
-                            "Ошибка получения списка комнат",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            } catch (ex: Exception) {
-                println(ex.message)
-            }
-        }
-    }
-
-
-    fun EnterRoom(RoomUID:String)
-    {
-        val urlConnection = GenerateRequest("http://${getString(R.string.host)}:3000/user/enterChatroom/$RoomUID/$UserUID","GET")
-        var response = ""
-
-        val scope = CoroutineScope(Dispatchers.Default)
-        scope.launch {
-            try {
-                val responseCode = urlConnection.responseCode
-                response = BufferedReader(InputStreamReader(urlConnection.inputStream)).use { reader ->
-                    reader.lineSequence().joinToString("\n")
-                }
-
-                if(responseCode == 200)
-                {
-                    ClearMainView()
-                    PrintToMainView("Вы успешно вошли в комнату")
-
-                }
-                else{
-                    CoroutineScope(Dispatchers.Main).launch {
-                        Toast.makeText(
-                            applicationContext,
-                            "Ошибка получения списка комнат",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            } catch (ex: Exception) {
-                println(ex.message)
-            }
-        }
-    }
-    fun WriteToRoom(message: String)
-    {
-        com.example.webchat.WebSocket.sendMessage(message)
-    }
-
     var UserTokenttoken = ""
     var UserUID = ""
+    var ChatID = ""
+    var UserName = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.chat_view)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -162,43 +59,30 @@ class ChatActivity : AppCompatActivity(), com.example.webchat.WebSocket.WebSocke
         val sharedPrf = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
         UserTokenttoken = sharedPrf.getString("user_token", null)?:"NULL"
         UserUID = sharedPrf.getString("user_uuid", null)?:"NULL"
+        ChatID = sharedPrf.getString("chat_id", null)?:"NULL"
+        UserName = sharedPrf.getString("user_name", null)?:"NULL"
 
-        GetRooms()
-//        var MyButton = findViewById<Button>(R.id.SendMessage);
-//        MyButton?.setOnClickListener()
-//        {
-//            AnalyzeInput()
-//            //val CurrentMessages = R.id.ChatView.get
-//            var Data =  findViewById<TextView>(R.id.ChatView).text.toString() + "\n" + findViewById<TextInputEditText>(R.id.MessageInput).text.toString();
-//            findViewById<TextView>(R.id.ChatView).setText(Data);
-//            //findViewById<TextView>(R.id.ChatView).text = Data;
-//        }
+        com.example.webchat.WebSocket.connectWebSocket(ChatID,UserUID,UserTokenttoken,this)
 
-    }
+        var MyButton = findViewById<Button>(R.id.btn_send);
+        MyButton?.setOnClickListener()
+        {
+            try {
+                val message = findViewById<EditText>(R.id.message_input).text.toString()
+                com.example.webchat.WebSocket.sendMessage(message)
+                findViewById<TextView>(R.id.chat_messages).setText(findViewById<TextView>(R.id.chat_messages).text.toString() + "\n\r" + "${UserName}:\t" +message);
+            }
+            catch (Ex:Exception)
+            {
+                println("awd")
+            }
 
-    fun AnalyzeInput()
-    {
-        if(IsRoomSeteltion) {
-
-           // val selectedRoom = findViewById<TextInputEditText>(R.id.MessageInput).text.toString()
-
-//            if(Rooms.containsKey(selectedRoom))
-//            {
-//                PrintToMainView("Выбрана текущая комната $selectedRoom")
-//                EnterRoom(Rooms[selectedRoom]?:"NULL")
-//                com.example.webchat.WebSocket.connectWebSocket(Rooms[selectedRoom]?:"NULL",UserUID,UserTokenttoken,this)
-//                IsRoomSeteltion = false
-//            }
-//            else
-//                PrintToMainView("Не удалось найти комнаты с таким названием")
         }
-        else{
-           // WriteToRoom(findViewById<TextInputEditText>(R.id.MessageInput).text.toString())
-        }
+
     }
 
     override fun onMessageReceived(message: String) {
-        PrintToMainView(message)
+        findViewById<TextView>(R.id.chat_messages).setText(findViewById<TextView>(R.id.chat_messages).text.toString() + "\n\r" +"Other:\t"+ message);
     }
 
     override fun onConnectionOpened() {

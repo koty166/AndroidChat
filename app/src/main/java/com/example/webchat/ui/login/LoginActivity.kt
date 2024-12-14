@@ -115,6 +115,7 @@ var UserAuthToken = "";
                         val UserUUID = JSONObject(JSONObject(response).getString("content")).getString("UserGuid")
                         editor.putString("user_token", Token)
                         editor.putString("user_uuid", UserUUID)
+                        editor.putString("user_name", params["username"])
                         editor.apply()
 
                         try{
